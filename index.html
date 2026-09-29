@@ -118,7 +118,7 @@
                 <ul class="text-sm text-slate-600 space-y-1">
                   <li>Elige <strong>modo</strong>, <strong>tema</strong> y <strong>dificultad</strong>.</li>
                   <li>Acierto = +10; en <strong>Máster</strong>, fallo = −5.</li>
-                  <li><strong>Supervivencia:</strong> si fallas, termina; cada acierto suma +2s.</li>
+                  <li><strong>Supervivencia:</strong> empiezas con 20 segundos. Cada acierto suma 2 segundos y sigues jugando; una respuesta incorrecta o el tiempo agotado termina la partida.</li>
                   <li><strong>Estudio:</strong> sin tiempo; los fallos reaparecen luego.</li>
                 </ul>
               </div>
@@ -251,11 +251,37 @@
 
           <!-- Final -->
           <section id="finalCard" class="screen" aria-labelledby="final-title">
-            <h2 id="final-title" class="text-xl sm:text-2xl font-bold mb-2">🎉 Fin de la partida</h2>
-            <p class="mb-4 text-slate-700">Puntos <span id="finalPoints" class="font-extrabold text-emerald-600">0</span> · Aciertos <span id="finalHits" class="font-extrabold">0</span> · Fallos <span id="finalMisses" class="font-extrabold">0</span></p>
-            <div class="rounded-2xl border p-4 bg-slate-50/60">
-              <h3 class="font-bold mb-2">🏅 Logros desbloqueados</h3>
-              <div id="achievementsList" class="flex flex-wrap gap-2 text-sm"></div>
+            <div class="rounded-3xl bg-gradient-to-br from-sky-700 to-emerald-700 p-5 sm:p-7 text-white shadow-sm">
+              <p id="finalMeta" class="text-sm text-sky-50/90 font-medium mb-2"></p>
+              <h2 id="final-title" class="text-2xl sm:text-3xl font-extrabold">Partida completada</h2>
+              <p id="finalReason" class="mt-2 text-sm sm:text-base text-white/90" role="status"></p>
+              <div class="mt-5 pt-4 border-t border-white/25 flex items-end gap-3">
+                <span id="finalPoints" class="text-5xl sm:text-6xl font-black tabular-nums leading-none">0</span>
+                <span class="text-sm font-semibold pb-1 text-white/90">puntos</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mt-3" aria-label="Resumen de la partida">
+              <div class="rounded-2xl border border-slate-200 bg-slate-50 p-3 sm:p-4">
+                <span class="block text-xs sm:text-sm text-slate-600">Preguntas jugadas</span>
+                <strong id="finalQuestions" class="block text-2xl sm:text-3xl mt-1 tabular-nums">0</strong>
+              </div>
+              <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-3 sm:p-4">
+                <span class="block text-xs sm:text-sm text-emerald-800">Aciertos</span>
+                <strong id="finalHits" class="block text-2xl sm:text-3xl mt-1 text-emerald-700 tabular-nums">0</strong>
+              </div>
+              <div class="rounded-2xl border border-rose-200 bg-rose-50 p-3 sm:p-4">
+                <span class="block text-xs sm:text-sm text-rose-800">Fallos</span>
+                <strong id="finalMisses" class="block text-2xl sm:text-3xl mt-1 text-rose-700 tabular-nums">0</strong>
+              </div>
+              <div class="rounded-2xl border border-amber-200 bg-amber-50 p-3 sm:p-4">
+                <span class="block text-xs sm:text-sm text-amber-900">Mejor racha</span>
+                <strong id="finalBestStreak" class="block text-2xl sm:text-3xl mt-1 text-amber-700 tabular-nums">0</strong>
+              </div>
+            </div>
+            <div class="rounded-2xl border border-slate-200 p-4 sm:p-5 bg-white mt-4">
+              <h3 class="font-bold mb-3">🏅 Logros nuevos</h3>
+              <div id="achievementsList" class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm"></div>
+              <p id="achievementsEmpty" class="hidden text-sm text-slate-600">Ningún logro nuevo en esta partida. Los que ya tienes siguen en la vitrina de Logros.</p>
             </div>
             <div class="flex flex-wrap gap-2 mt-4">
               <button id="playAgainBtn" type="button" class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-semibold">Jugar otra vez</button>
@@ -432,7 +458,7 @@
         
       
 <script src="./achievements.js?v=2909-3" defer></script>
-<script src="./app.js?v=2909-3" defer></script>
+<script src="./app.js?v=2909-32" defer></script>
 
     </div>
   </main>

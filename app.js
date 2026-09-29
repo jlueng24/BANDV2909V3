@@ -71,6 +71,7 @@ let qActiveStartMs = 0, qAccumulatedMs = 0;
 let timesMs = [];
 let missMap = {};
 let streak = 0;
+let runStreak = 0, bestRunStreak = 0;
 
 let muteFx = false;
 let studyQueue = [];
@@ -220,7 +221,13 @@ const ui = {
   finalPoints: $('#finalPoints'),
   finalHits: $('#finalHits'),
   finalMisses: $('#finalMisses'),
+  finalQuestions: $('#finalQuestions'),
+  finalBestStreak: $('#finalBestStreak'),
+  finalTitle: $('#final-title'),
+  finalMeta: $('#finalMeta'),
+  finalReason: $('#finalReason'),
   achievementsList: $('#achievementsList'),
+  achievementsEmpty: $('#achievementsEmpty'),
 
   // Álbum
   albumModal: $('#albumModal'),
@@ -555,6 +562,7 @@ function newGame(){
 
   idx = 0; score = 0; hits = 0; misses = 0; locked = false;
   timesMs = []; missMap = {}; streak = lsGet(LS.streak, 0); studyQueue = [];
+  runStreak = 0; bestRunStreak = 0;
   qAccumulatedMs = 0; paused = false;
   updatePauseButtons();
   unlockedThisRun = new Set();
@@ -632,13 +640,29 @@ async function loadAchCatalog(){
 async function renderFinalAchievementChips(listEl, idsOpt){
   try{
     const keys = idsOpt || [];
-    if (!keys.length){ listEl.innerHTML=''; return; }
+    listEl.replaceChildren();
+    if (!keys.length) return;
     const cat = await loadAchCatalog();
-    listEl.innerHTML = keys.map(id=>{
+    const fragment = document.createDocumentFragment();
+    keys.forEach(id=>{
       const a = cat[id];
       const name = a?.name || id;
-      return `<span class="inline-flex items-center gap-1 px-3 py-1 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs">🏅 ${name}</span>`;
-    }).join(' ');
+      const card = document.createElement('div');
+      card.className = 'flex items-center gap-3 rounded-xl border border-emerald-200 bg-emerald-50 p-2';
+      if (a?.art){
+        const img = document.createElement('img');
+        img.src = a.art;
+        img.alt = '';
+        img.className = 'w-12 h-12 sm:w-14 sm:h-14 object-contain shrink-0';
+        card.appendChild(img);
+      }
+      const label = document.createElement('span');
+      label.className = 'font-semibold text-emerald-900';
+      label.textContent = name;
+      card.appendChild(label);
+      fragment.appendChild(card);
+    });
+    listEl.replaceChildren(fragment);
   }catch(e){ /* noop */ }
 }
 function renderQuestion(){
@@ -689,7 +713,10 @@ function renderQuestion(){
   locked = false;
   ui.qNumber.textContent = (currentMode==='study' ? (idx+1+studyQueue.length) : (idx+1));
   if (currentMode==='study'){ $('#timeBar').style.width = '0%'; ui.timeLeft.textContent = '∞'; }
-  else if (currentMode==='survival'){ if (idx===0){ timeLeft = SURVIVAL_START; startSurvivalTimer(); } }
+  else if (currentMode==='survival'){
+    if (idx===0) timeLeft = SURVIVAL_START;
+    startSurvivalTimer(idx===0);
+  }
   else { startTimer(); }
 }
 
@@ -943,7 +970,11 @@ function renderAlbum(region=albumActiveRegion){
 function onSelect(e){
   if (locked || paused) return;
   locked = true;
-  if (currentMode!=='study') { qAccumulatedMs += (Date.now() - qActiveStartMs); stopTimer(); }
+  if (currentMode!=='study') {
+    qAccumulatedMs += (Date.now() - qActiveStartMs);
+    if (currentMode==='survival') stopSurvivalTimer();
+    else stopTimer();
+  }
 
   const btn = e.currentTarget;
   const correct = btn.dataset.correct === "1";
@@ -982,6 +1013,11 @@ function onSelect(e){
     markButtons($$("#card-capital .answer-btn.cap"), btn);
   }
 
+  if (correct){
+    runStreak += 1;
+    bestRunStreak = Math.max(bestRunStreak, runStreak);
+  } else { runStreak = 0; }
+
 // Desbloqueos por región y tipo, solo tras acertar.
 if (correct) {
   const regionKey = (q.item?.region || 'all');
@@ -1014,12 +1050,12 @@ lsSet(LS.streak, streak);
 
   
 
+  if (currentMode!=='study') timesMs.push(qAccumulatedMs);
   if (currentMode==='survival'){
-    if (!correct){ endGame(true); return; }
+    if (!correct){ endGame('wrong'); return; }
     else { timeLeft += SURVIVAL_BONUS; }
   }
 
-  if (currentMode!=='study') timesMs.push(qAccumulatedMs);
   advanceProgress();
   scheduleNext();
 }
@@ -1029,21 +1065,19 @@ function handleTimeout(){
   locked = true;
   qAccumulatedMs += (Date.now() - qActiveStartMs);
   timesMs.push(qAccumulatedMs);
+  if (currentMode==='survival'){
+    streak = 0; runStreak = 0; lsSet(LS.streak, 0);
+    fxWrong(); endGame('timeout'); return;
+  }
   const q = order[idx];
 
   if(!missMap[q.item.code]) missMap[q.item.code] = {name: q.item.nameES, attempts:0, wrong:0};
   missMap[q.item.code].attempts += 1;
   missMap[q.item.code].wrong += 1;
 
-  if (currentMode==='survival'){
-    misses += 1; streak = 0; lsSet(LS.streak, 0);
-    ui.misses.textContent = misses;
-    fxWrong(); endGame(true); return;
-  }
-
   const { wrongPenalty } = LEVELS[currentLevel];
   if (wrongPenalty < 0) score = Math.max(0, score + wrongPenalty);
-  misses += 1; streak = 0;
+  misses += 1; streak = 0; runStreak = 0;
   lsSet(LS.streak, 0);
   ui.points.textContent = score; ui.misses.textContent = misses;
 
@@ -1099,16 +1133,30 @@ function startSurvivalTimer(resetElapsed=true){
     timeSurvivedSec += 0.1;
     ui.timeLeft.textContent = Math.ceil(timeLeft);
     ui.timeBar.style.width = Math.max(0, Math.min(100, (timeLeft / SURVIVAL_START) * 100)) + "%";
-    if (timeLeft<=0){ misses += 1; ui.misses.textContent = misses; streak = 0; lsSet(LS.streak, 0); fxWrong(); endGame(true); }
+    if (timeLeft<=0){
+      locked = true;
+      qAccumulatedMs += (Date.now() - qActiveStartMs);
+      timesMs.push(qAccumulatedMs);
+      streak = 0; runStreak = 0; lsSet(LS.streak, 0);
+      fxWrong(); endGame('timeout');
+    }
   }, 100);
 }
 function stopSurvivalTimer(){ if (survivalInterval) { clearInterval(survivalInterval); survivalInterval=null; } }
 
-function endGame(){
+function endGame(reason){
   stopTimer(); stopSurvivalTimer(); if(nextTimer){ clearTimeout(nextTimer); nextTimer=null; }
   ui.finalPoints.textContent = score;
   ui.finalHits.textContent = hits;
   ui.finalMisses.textContent = misses;
+  ui.finalQuestions.textContent = idx + 1;
+  ui.finalBestStreak.textContent = bestRunStreak;
+  ui.finalTitle.textContent = currentMode==='survival' ? '🏁 Fin de Supervivencia' : '🎉 Partida completada';
+  ui.finalMeta.textContent = [modeLabel(currentMode), REGION_LABELS[currentTheme] || currentTheme,
+    LEVELS[currentLevel]?.label || ''].filter(Boolean).join(' · ');
+  ui.finalReason.textContent = reason==='timeout' ? 'Se agotó el tiempo.' :
+    reason==='wrong' ? 'Una respuesta incorrecta terminó la partida.' :
+    '¡Has llegado al final de la partida!';
 
   unlockAchievement('progreso_primer_paso');
   if (lsGet(LS.scores, []).length + 1 >= 50) unlockAchievement('progreso_veterano_50');
@@ -1122,7 +1170,9 @@ function endGame(){
   }
   
   
-renderFinalAchievementChips(ui.achievementsList, Array.from(unlockedThisRun));
+  const newAchievements = Array.from(unlockedThisRun);
+  ui.achievementsEmpty.classList.toggle('hidden', newAchievements.length > 0);
+  renderFinalAchievementChips(ui.achievementsList, newAchievements);
 
   if (albumUnlockedThisRun.size > 0) { ui.openAlbumFromFinal.classList.remove('hidden'); }
   else { ui.openAlbumFromFinal.classList.add('hidden'); }
